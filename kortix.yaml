@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://kortix.com/schema/kortix.v2.schema.json
+#
+# Kortix is the open-source AI Operating System. Kortix project manifest (v2). The manifest is the file the platform treats
+# as authoritative for a project. It sets governance: which agents may launch,
+# what each one may reach, and when work starts on its own. Behavior (system
+# prompt, model, mode, steps, permissions) lives in each agent's own
+# agents/<name>.md file, never here. See https://kortix.com/docs/project/manifest.
+#
+# Secret values never appear in this file. These are secret NAMES; values live
+# in the project secret store.
+
+kortix_version: 2
+default_agent: kortix
+
+project:
+  name: open-web-ui-alternative-deploy
+  description: A Kortix project for a team moving off a chat-only interface.
+
+# env.required is advisory. Secrets are granted per agent under `agents`.
+env:
+  required: []
+  optional:
+    - DAYTONA_API_KEY
+    - MANAGED_GIT_GITHUB_TOKEN
+
+# The agent harness and its config directory. OpenCode is the default harness.
+opencode:
+  config_dir: harnesses/opencode
+
+# The machine a session boots. Swap the tag for a pinned version, or point
+# `dockerfile:` at your own build.
+sandbox:
+  templates:
+    - slug: standard
+      name: Standard agent machine
+      image: docker.io/kortix/sandbox:stable
+      cpu: 2
+      memory: 4
+
+# Connectors are declared here, then granted to an agent by slug.
+connectors:
+  - slug: github
+    name: GitHub
+    provider: composio
+    app: github
+  - slug: docs-search
+    name: Docs search (MCP)
+    provider: mcp
+    url: https://mcp.example.com/sse
+    transport: sse
+
+# Governance only: what each agent may reach. No behavioral fields here.
+agents:
+  kortix:
+    file: agents/kortix.md
+    connectors: all
+    secrets: all
+    kortix_permissions: all
+    skills: all
+  reviewer:
+    file: agents/reviewer.md
+    connectors: [github]
+    kortix_permissions: [project.gitops.push]
+    secrets: [MANAGED_GIT_GITHUB_TOKEN]
+
+# Triggers start sessions with nobody present. Exactly two kinds: cron and webhook.
+triggers:
+  - slug: weekly-triage
+    name: Weekly open-item triage
+    type: cron
+    agent: kortix
+    cron: "0 9 * * 1"
+    timezone: America/New_York
+    prompt: |
+      Summarize last week's open items.
+      Open a change request against main with the summary.
+
+# Project-wide connector approval mode. allow_all is the default.
+# Approval gates are off until you set them.
+policy:
+  default_mode: allow_all
