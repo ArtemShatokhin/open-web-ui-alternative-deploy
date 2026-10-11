@@ -1,0 +1,107 @@
+# Kortix self-host stack template. Kortix is the open-source AI Operating System.
+#
+# A Kortix self-host instance is ONE Docker Compose project. The supported way
+# to create it is `kortix self-host init`, which renders this stack plus a .env
+# into ~/.config/kortix/self-host/<instance>/, and `kortix self-host start`,
+# which runs `docker compose up`. See https://kortix.com/docs/host/architecture.
+#
+# This file shows the same topology in a form you can read and adapt:
+#   - caddy terminates TLS and routes the domain and api.<domain>.
+#   - frontend, kortix-api and llm-gateway are the three application images.
+#   - postgres holds platform data. The official distribution also vendors the
+#     Supabase services (Kong, GoTrue, PostgREST, Storage, Realtime, Studio,
+#     imgproxy, meta, functions, Supavisor) and pins every image by digest.
+#     Use `kortix self-host init` for a complete instance.
+#   - Agent sandboxes run OFF this box on a managed provider: Daytona by
+#     default. E2B and Platinum are also supported.
+#
+# Secrets are placeholders. Put real values in a .env file next to this file,
+# or in the project secret store. Never commit a real value.
+#
+#   docker compose --env-file .env up -d
+#
+# image tags: the self-host stack tracks the `stable` channel by default, or
+# `latest`, or a version you pin. Override KORTIX_IMAGE_TAG to pin one.
+
+name: kortix-selfhost
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - kortix-api
+      - llm-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      KORTIX_DOMAIN: ${KORTIX_DOMAIN:?set KORTIX_DOMAIN}
+      KORTIX_API_DOMAIN: ${KORTIX_API_DOMAIN:?set KORTIX_API_DOMAIN}
+      KORTIX_ACME_EMAIL: ${KORTIX_ACME_EMAIL:?set KORTIX_ACME_EMAIL}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+  frontend:
+    image: docker.io/kortix/frontend:${KORTIX_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://${KORTIX_API_DOMAIN:?set KORTIX_API_DOMAIN}
+
+  kortix-api:
+    image: docker.io/kortix/api:${KORTIX_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://kortix:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/kortix
+      LLM_GATEWAY_URL: http://llm-gateway:8081
+      # Required before sessions can run. Daytona is the default provider.
+      DAYTONA_API_KEY: ${DAYTONA_API_KEY:-}
+      # Optional managed-git token, or connect a GitHub App in the dashboard.
+      MANAGED_GIT_GITHUB_TOKEN: ${MANAGED_GIT_GITHUB_TOKEN:-}
+    volumes:
+      - api_storage:/var/lib/kortix/storage
+
+  llm-gateway:
+    image: docker.io/kortix/llm-gateway:${KORTIX_IMAGE_TAG:-stable}
+    restart: unless-stopped
+    environment:
+      LLM_GATEWAY_SECRET: ${LLM_GATEWAY_SECRET:?set LLM_GATEWAY_SECRET}
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kortix
+      POSTGRES_DB: kortix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kortix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+configs:
+  caddyfile:
+    content: |
+      {$KORTIX_DOMAIN} {
+        reverse_proxy frontend:3000
+      }
+      {$KORTIX_API_DOMAIN} {
+        reverse_proxy kortix-api:8008
+      }
+
+volumes:
+  db_data:
+  api_storage:
+  caddy_data:
+  caddy_config:
