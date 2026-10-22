@@ -16,7 +16,7 @@ For production, yes. A persistent domain gives the Caddy proxy a stable name for
 
 ## Where does agent compute run?
 
-Agent sessions run on a managed sandbox provider, not on the self-host box. Daytona is the default; E2B and Platinum are also supported. The self-host box runs the web stack, and sandbox compute stays off it, so the box only needs capacity for the application ([self-hosting architecture](https://kortix.com/docs/host/architecture)).
+Agent sessions run on a managed sandbox provider, not on the self-host box. Platinum is the default; Daytona remains available as a legacy fallback. The self-host box runs the web stack, and sandbox compute stays off it, so the box only needs capacity for the application ([self-hosting architecture](https://kortix.com/docs/host/architecture)).
 
 ## Can I bring my own model?
 
