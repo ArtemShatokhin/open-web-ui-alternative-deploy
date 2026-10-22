@@ -8,7 +8,7 @@ If you are still deciding whether to move off Open WebUI at all, start with [Kor
 
 A self-hosted Kortix instance is one generic Docker Compose project. It runs the frontend, the API, the LLM gateway, and the official Supabase distribution, with a bundled Caddy proxy in front ([self-hosting architecture](https://kortix.com/docs/host/architecture)). The same artifact runs on a laptop, a VPS, or any cloud VM; a domain is only the `KORTIX_DOMAIN` variable, not a different setup.
 
-Agent sessions do not run on this box. Each session boots its own isolated cloud computer on a managed sandbox provider, and the provider defaults to Daytona. Platinum and E2B are also supported. Sandbox compute never runs on the self-host box, so the box only needs capacity for the web stack.
+Agent sessions do not run on this box. Each session boots its own isolated cloud computer on a managed sandbox provider, and the provider defaults to Platinum. Daytona remains available as a legacy fallback. Sandbox compute never runs on the self-host box, so the box only needs capacity for the web stack.
 
 ## Prerequisites
 
